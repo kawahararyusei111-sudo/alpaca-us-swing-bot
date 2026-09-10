@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 PAPER_BASE = "https://paper-api.alpaca.markets"
 DATA_BASE = "https://data.alpaca.markets"
 
-WATCHLIST = ["AAPL", "MSFT", "SPY", "QQQ", "NVDA"]
+WATCHLIST = ["MU", "NVDA", "MSFT", "PLTR", "CRWV", "NBIS", "QQQ", "AAPL", "SPY", "JNJ", "JPM"]
 SHORT_WINDOW = 20
 LONG_WINDOW = 50
 POSITION_PCT = 0.30  # fraction of equity to put into a single new position
