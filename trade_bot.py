@@ -20,7 +20,7 @@ DATA_BASE = "https://data.alpaca.markets"
 WATCHLIST = ["AAPL", "MSFT", "SPY", "QQQ", "NVDA"]
 SHORT_WINDOW = 20
 LONG_WINDOW = 50
-POSITION_PCT = 0.15  # fraction of equity to put into a single new position
+POSITION_PCT = 0.30  # fraction of equity to put into a single new position
 MAX_POSITIONS = 3
 STOP_LOSS_PCT = -0.05  # unrealized P/L fraction that forces an exit
 
