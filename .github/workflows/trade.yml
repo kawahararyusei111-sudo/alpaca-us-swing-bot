@@ -5,7 +5,9 @@ on:
     # UTC 14,16,18,20 covers US market hours (9:30-16:00 ET) across both
     # EDT and EST without needing seasonal adjustment. trade_bot.py also
     # checks Alpaca's market clock and skips on holidays/closed days.
-    - cron: "0 14,16,18,20 * * 1-5"
+    # Offset to :13 (not :00) since GitHub Actions queues everyone's
+    # top-of-the-hour cron jobs at once, causing delays/drops under load.
+    - cron: "13 14,16,18,20 * * 1-5"
   workflow_dispatch: {}
 
 permissions:
