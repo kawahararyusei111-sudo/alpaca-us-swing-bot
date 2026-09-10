@@ -1,0 +1,23 @@
+name: Alpaca paper trade
+
+on:
+  schedule:
+    # UTC 14,16,18,20 covers US market hours (9:30-16:00 ET) across both
+    # EDT and EST without needing seasonal adjustment. trade_bot.py also
+    # checks Alpaca's market clock and skips on holidays/closed days.
+    - cron: "0 14,16,18,20 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run SMA crossover bot
+        env:
+          ALPACA_API_KEY_ID: ${{ secrets.ALPACA_API_KEY_ID }}
+          ALPACA_API_SECRET_KEY: ${{ secrets.ALPACA_API_SECRET_KEY }}
+        run: python trade_bot.py
