@@ -5,9 +5,13 @@ on:
     # UTC 14,16,18,20 covers US market hours (9:30-16:00 ET) across both
     # EDT and EST without needing seasonal adjustment. trade_bot.py also
     # checks Alpaca's market clock and skips on holidays/closed days.
-    # Offset to :13 (not :00) since GitHub Actions queues everyone's
-    # top-of-the-hour cron jobs at once, causing delays/drops under load.
-    - cron: "13 14,16,18,20 * * 1-5"
+    # Two triggers per target hour (:13 and :43) since GitHub Actions
+    # sometimes delays/drops scheduled runs under load; trade_bot.py's
+    # buy/sell logic is idempotent (won't double-buy an already-held
+    # position or sell one it doesn't hold), so a duplicate firing in the
+    # same hour is harmless and this just raises the odds that each of
+    # the 4 windows actually executes at least once.
+    - cron: "13,43 14,16,18,20 * * 1-5"
   workflow_dispatch: {}
 
 permissions:
