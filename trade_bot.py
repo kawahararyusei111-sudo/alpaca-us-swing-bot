@@ -12,7 +12,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 PAPER_BASE = "https://paper-api.alpaca.markets"
 DATA_BASE = "https://data.alpaca.markets"
@@ -23,6 +23,11 @@ LONG_WINDOW = 50
 POSITION_PCT = 0.30  # fraction of equity to put into a single new position
 MAX_POSITIONS = 3
 STOP_LOSS_PCT = -0.05  # unrealized P/L fraction that forces an exit
+# Runs fire only a few times a day, so a cross that happened between runs
+# would be missed if we only looked at the latest bar. Treat a cross within
+# the last CROSS_LOOKBACK bars as valid, as long as the trend still holds now.
+CROSS_LOOKBACK = 8
+HISTORY_DAYS = 30  # calendar days of hourly bars to request
 
 
 def _headers():
@@ -61,9 +66,22 @@ def get_positions():
 
 
 def get_closes(symbol, limit):
-    url = f"{DATA_BASE}/v2/stocks/{symbol}/bars?timeframe=1Hour&limit={limit}&adjustment=raw&feed=iex"
-    bars = req(url).get("bars", [])
-    return [b["c"] for b in bars]
+    # Without `start`, Alpaca only returns bars from the current day, which is
+    # never enough for SMA50 on hourly bars. Request a wider window explicitly.
+    start = (datetime.now(timezone.utc) - timedelta(days=HISTORY_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    closes = []
+    page_token = None
+    while True:
+        url = (f"{DATA_BASE}/v2/stocks/{symbol}/bars?timeframe=1Hour&start={start}"
+               f"&limit=10000&adjustment=raw&feed=iex")
+        if page_token:
+            url += f"&page_token={page_token}"
+        resp = req(url)
+        closes += [b["c"] for b in resp.get("bars") or []]
+        page_token = resp.get("next_page_token")
+        if not page_token:
+            break
+    return closes[-limit:]
 
 
 def sma(values, window):
@@ -98,7 +116,7 @@ def main():
 
     for symbol in WATCHLIST:
         try:
-            closes = get_closes(symbol, LONG_WINDOW + 2)
+            closes = get_closes(symbol, LONG_WINDOW + CROSS_LOOKBACK + 1)
         except Exception as e:
             print(f"{symbol}: failed to fetch bars ({e}), skipping")
             continue
@@ -118,11 +136,17 @@ def main():
 
         short_now = sma(closes, SHORT_WINDOW)
         long_now = sma(closes, LONG_WINDOW)
-        short_prev = sma(closes[:-1], SHORT_WINDOW)
-        long_prev = sma(closes[:-1], LONG_WINDOW)
 
-        golden_cross = short_prev <= long_prev and short_now > long_now
-        death_cross = short_prev >= long_prev and short_now < long_now
+        # Sign of (SMA_short - SMA_long) for each of the last CROSS_LOOKBACK+1 bars
+        diffs = []
+        for k in range(min(CROSS_LOOKBACK, len(closes) - LONG_WINDOW), -1, -1):
+            window = closes[:len(closes) - k]
+            diffs.append(sma(window, SHORT_WINDOW) - sma(window, LONG_WINDOW))
+        recent_golden = any(a <= 0 < b for a, b in zip(diffs, diffs[1:]))
+        recent_death = any(a >= 0 > b for a, b in zip(diffs, diffs[1:]))
+
+        golden_cross = recent_golden and short_now > long_now
+        death_cross = recent_death and short_now < long_now
 
         if golden_cross and not held and len(positions) < MAX_POSITIONS:
             notional = equity * POSITION_PCT
